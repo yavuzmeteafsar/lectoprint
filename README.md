@@ -53,6 +53,9 @@ All three are generated from original sample notes on finite automata, written f
 2. In Claude, go to **Customize → Skills**, click **+**, choose **Create skill → Upload a skill**, and upload the zip.
 3. Code execution must be on (**Settings → Capabilities** on individual plans; an owner enables it for Team and Enterprise).
 
+> [!IMPORTANT]
+> Upload **the zip itself**, not the SKILL.md inside it and not an unpacked folder. The skill needs both `SKILL.md` and `scripts/doc_builder.py`; with SKILL.md alone it cannot build PDFs and will ask you to reinstall. Safari can unzip downloads automatically: if you end up with a `lectoprint` folder instead of `lectoprint.zip`, download it again or turn off "Open safe files after downloading".
+
 To build the zip yourself: `python3 tools/package.py` writes `dist/lectoprint.zip`.
 
 ## Use

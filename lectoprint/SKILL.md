@@ -157,7 +157,14 @@ When the user is preparing for a specific quiz (for example a question a friend 
 ## 8. Build
 
 1. Find the builder that ships with this skill: `find / -path /proc -prune -o -name doc_builder.py -path "*lectoprint*" -print 2>/dev/null`. It sits in `scripts/` next to this SKILL.md. Create a working folder (e.g. `./lectoprint_<topic>/`) and copy it there **unchanged**; add new methods only if needed.
-   If it is not found, the skill was installed without its `scripts/` folder (usually SKILL.md was uploaded on its own). Do not rewrite the builder from memory and do not ask the user for a folder. Tell the user in one sentence to reinstall from `lectoprint.zip` (https://github.com/yavuzmeteafsar/lectoprint/releases/latest), then stop.
+   If it is not found, the skill was installed without its `scripts/` folder, usually because SKILL.md was uploaded on its own or the zip was unpacked first. Do not rewrite the builder from memory, do not ask the user for a folder or file, and do not start the PDF. Send the installation message below in the user's language, then stop:
+
+   > Lectoprint is installed incompletely: its PDF builder (`scripts/doc_builder.py`) is missing. This happens when only SKILL.md is uploaded instead of the zip. To fix it:
+   > 1. In **Customize → Skills**, delete the current Lectoprint skill.
+   > 2. Download **lectoprint.zip** from https://github.com/yavuzmeteafsar/lectoprint/releases/latest (not the "Source code" files).
+   > 3. Do **not** unzip it. Safari may unzip downloads automatically; if you see a `lectoprint` folder instead of a zip, download it again with another browser.
+   > 4. Go to **Customize → Skills → + → Create skill → Upload a skill** and upload the zip as it is.
+   > 5. Come back to this chat and say "continue"; your earlier choices will be kept.
 2. Write the content in `build.py` (and the `part_*.py` files) by calling `Doc` methods in order. Files are UTF-8.
 3. `python3 build.py`.
 
