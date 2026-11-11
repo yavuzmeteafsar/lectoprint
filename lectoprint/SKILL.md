@@ -156,7 +156,8 @@ When the user is preparing for a specific quiz (for example a question a friend 
 
 ## 8. Build
 
-1. Create a working folder (e.g. `./lectoprint_<topic>/`). Copy `scripts/doc_builder.py` from this skill's folder into it **unchanged**; add new methods only if needed.
+1. Find the builder that ships with this skill: `find / -path /proc -prune -o -name doc_builder.py -path "*lectoprint*" -print 2>/dev/null`. It sits in `scripts/` next to this SKILL.md. Create a working folder (e.g. `./lectoprint_<topic>/`) and copy it there **unchanged**; add new methods only if needed.
+   If it is not found, the skill was installed without its `scripts/` folder (usually SKILL.md was uploaded on its own). Do not rewrite the builder from memory and do not ask the user for a folder. Tell the user in one sentence to reinstall from `lectoprint.zip` (https://github.com/yavuzmeteafsar/lectoprint/releases/latest), then stop.
 2. Write the content in `build.py` (and the `part_*.py` files) by calling `Doc` methods in order. Files are UTF-8.
 3. `python3 build.py`.
 
