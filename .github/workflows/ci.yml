@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils fonts-dejavu-core
+          pip install reportlab matplotlib
+      - name: Build sample PDFs
+        run: |
+          python3 examples/src/build_en_full.py
+          python3 examples/src/build_hybrid_quick.py
+          python3 examples/src/build_tr_questions.py
+      - name: Check fonts and language
+        run: |
+          python3 tests/check_pdf.py \
+            examples/Lectoprint_EN_Full_Notes.pdf:en \
+            examples/Lectoprint_Hybrid_Quick_Review.pdf:hybrid \
+            examples/Lectoprint_TR_Soru_Bankasi.pdf:tr
+      - name: Package skill
+        run: python3 tools/package.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lectoprint
+          path: |
+            dist/lectoprint.zip
+            examples/*.pdf
