@@ -1,12 +1,12 @@
 ---
 name: lectoprint
 description: "Turns slides or notes into an exam-ready study PDF: full notes, quick review or question bank; English, hybrid TR+EN or Turkish. Use for study PDF, ders PDF'i, sınav notu, hızlı tekrar."
-dependencies: python>=3.8, reportlab>=4.0, matplotlib>=3.7
+dependencies: python>=3.8, reportlab>=4.0, matplotlib>=3.7, pypdfium2>=4.0
 ---
 
 # Lectoprint
 
-Lectoprint produces one kind of output: a printable study PDF built from the user's course material, with the reasoning flow **why → example → question**, not memorisation. Everything the skill needs is in this file plus `scripts/doc_builder.py` next to it.
+Lectoprint produces one kind of output: a printable study PDF built from the user's course material, with the reasoning flow **why → example → question**, not memorisation. Everything the skill needs is in this file plus the `scripts/` folder next to it: `doc_builder.py` (the PDF builder) and `find_figures.py` (finds and crops the figures in a source PDF).
 
 The goal: nothing in the source is skipped, every claim is traceable to a slide or page, and the PDF works as the last thing a student reads before an exam.
 
@@ -132,7 +132,8 @@ Every figure in the source must appear in the PDF, unless the user said no to fi
 
 - **Redraw** with `diagram()` when it can be reproduced exactly (automata, state diagrams, directed networks, simple graphs). Node names, arrow directions, labels and known/unknown distinctions must match the source.
 - **Screenshot** everything else (circuits, function plots, curves, geometry, photos, complex illustrations, tables drawn as images) with `image()`. If unsure, screenshot; an approximate redraw is worse than a correct screenshot.
-- **Cropping**: render the page at low resolution to locate the figure, then crop only the figure at high resolution: `pdftoppm -png -r 200 -f N -l N -x X -y Y -W W -H H source.pdf fig_sN` (X, Y, W, H in 200-dpi pixels). Open the crop and check that labels, arrows and values are all inside and no extra text is. Convert `.pptx` sources first with `soffice --headless --convert-to pdf`.
+- **Finding and cropping**: convert `.pptx` sources first with `soffice --headless --convert-to pdf`. Then run `python3 <scripts>/find_figures.py source.pdf figs/` (`<scripts>` is the folder that holds `doc_builder.py`, Section 8). It prints one line per figure and writes `figs/pNNN_fM.png` crops at 200 dpi plus `figs/figures.json` with each figure's page, kind (`image`, `drawing`, `mixed`), crop box and a ready `pdftoppm` command. If it reports that `pypdfium2` is missing, run `pip install pypdfium2` (add `--break-system-packages` if pip refuses) and run it again. `--pages 3-7,9` limits it to some pages.
+- **Checking the crops**: combine the PNGs into one sheet with PIL and look at it. Each crop must hold all labels, arrows and values and no extra text. Drop logos, QR codes, tables (rebuild those with `grid()`) and text frames that slipped through. A crop that cuts something off, or a `full_page` entry where only part of the page is the figure: take its `pdftoppm` command from `figures.json`, adjust `-x -y -W -H` (200-dpi pixels from the top-left corner) and crop by hand. A figure the script missed (one the source text refers to on a page with no entry, often a drawing whose wires are one large shape): crop it by hand the same way.
 - **Placement**: right after the `q_box`/`src_box` of the example it belongs to, before the solution steps. Repeat it if the solution needs it again.
 - **Caption**: source and page — "Source: Week 4 Workbook, p.4 (screenshot)" or "(redrawn)".
 - **Reading check**: verify everything read off a figure (polarity, arrow direction, axis values) by looking closely. If it is ambiguous, say so in a `warn_box` as an Assumption and include the screenshot anyway.
@@ -199,7 +200,7 @@ When the user is preparing for a specific quiz (for example a question a friend 
 
 ## 9. Check and deliver
 
-1. Preview: `pdftoppm -png -r 60 out.pdf prev/pg`, combine pages into sheets of six with PIL and look at each. Look at diagram and table-heavy pages at `-r 110`. Check for overflowing text, broken tables, overlapping diagram labels, loop labels outside their box, empty pages. **Figure check**: count the figures in the source and confirm each one is in the PDF (drawn, screenshot, or "see source" line), and that crops are complete and legible.
+1. Preview: `pdftoppm -png -r 60 out.pdf prev/pg`, combine pages into sheets of six with PIL and look at each. Look at diagram and table-heavy pages at `-r 110`. Check for overflowing text, broken tables, overlapping diagram labels, loop labels outside their box, empty pages. **Figure check**: take the figures in the source (`figures.json` plus any you cropped by hand) and confirm each one is in the PDF (drawn, screenshot, or "see source" line), and that crops are complete and legible.
 2. Language check: `pdffonts out.pdf` must list only embedded DejaVu fonts for text. In hybrid and tr modes `pdftotext out.pdf -` must not contain ASCII-flattened Turkish such as "Donusum", "Adim", "icin", "cunku". In tr mode there must be no untranslated English sentences outside acronyms and the parenthesised first definitions.
 3. Fix and rebuild if needed.
 4. Copy the PDF to the outputs folder with a meaningful name (e.g. `Automata_NFA_to_DFA_QuickReview.pdf`) and send it to the user.

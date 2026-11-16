@@ -19,7 +19,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y poppler-utils fonts-dejavu-core
-          pip install reportlab matplotlib
+          pip install reportlab matplotlib pypdfium2
       - name: Build sample PDFs
         run: |
           python3 examples/src/build_en_full.py
@@ -31,6 +31,8 @@ jobs:
             examples/Lectoprint_EN_Full_Notes.pdf:en \
             examples/Lectoprint_Hybrid_Quick_Review.pdf:hybrid \
             examples/Lectoprint_TR_Soru_Bankasi.pdf:tr
+      - name: Check figure detection
+        run: python3 tests/test_find_figures.py
       - name: Package skill
         run: python3 tools/package.py
       - uses: actions/upload-artifact@v4
