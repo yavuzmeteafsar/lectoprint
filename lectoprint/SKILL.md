@@ -104,7 +104,7 @@ A short cover and contents page, then straight into Exam Practice with the quest
 - A short intro: definitions are verbatim from the source; bold words are the keywords an answer must contain.
 - `info_box` "How to study this section": (1) read the term and say the definition in your own words, (2) compare with the definition and find the bold word you missed, (3) ask why that word is there. Give a concrete example from the topic.
 - Every concept defined in the source, in source order, in one `grid`. Headers by mode — en: `["Term", "Definition", "Source"]`; hybrid: `["Term", "Definition (kaynaktaki İngilizce)", "Kaynak"]`; tr: `["Terim", "Tanım", "Kaynak"]`. Widths `[1.6, 4.6, 0.6]`, `mono_cols=[2]`. Distinguishing keywords in `<b>`. For concepts with drawing rules (e.g. UML relationships), include the rule.
-- Subsection **Commonly confused pairs** (*Karıştırılan tanım çiftleri*): `["Pair", "Distinguishing point"]` / `["Çift", "Ayırt edici nokta"]`, written as `<i>A</i> vs <i>B</i>` using the source's own words. Put `d.add(CondPageBreak(9 * cm))` before it.
+- Subsection **Commonly confused pairs** (*Karıştırılan tanım çiftleri*): `["Pair", "Distinguishing point"]` / `["Çift", "Ayırt edici nokta"]`, written as `<i>A</i> vs <i>B</i>` using the source's own words. Put `d.add(db.CondPageBreak(9 * db.cm))` before it.
 
 **Exam Practice** — `sec_hdr(no, title, bg=PRIMARY)`; title: *Exam Practice* / *Sınav Pratiği*. Fixed counts, regardless of how long the source is:
 
@@ -119,10 +119,10 @@ A short cover and contents page, then straight into Exam Practice with the quest
 - **Multiple choice**: `q_box("MC n", [question, "a) …", "b) …", "c) …", "d) …"])` + `hl_box("<b>Answer: x.</b> reason (slide n)")`. Include "which is NOT" and interpretation questions; spread the correct letters.
 - **Open-ended**: `q_box("OE n" or "OE n (Scenario)", question)` + `hl_box([paragraphs], title="Model answer")`. Scenario questions ask for a diagram, model or decision for a given system, answered only with the source's notation.
 - **Definition questions**: first an `info_box` "How to answer": write the source's definition with its keywords, then add an example or drawing rule from the source. Then `q_box("Definition n", "Define X / Distinguish X from Y")` + `hl_box(answer, title="Model answer")`. Choose the most important definitions or pairs; scoring keywords in bold.
-- Keep each question with its answer: before each `q_box` add `d.add(CondPageBreak(...))` — T/F 3.5 cm, MC and Definition 6 cm, Open-ended 9 cm.
+- Keep each question with its answer: before each `q_box` add `d.add(db.CondPageBreak(...))` — T/F 3.5 cm, MC and Definition 6 cm, Open-ended 9 cm.
 - Every answer rests only on source definitions and cites a slide or page.
 - In `tr` mode labels become "D/Y n", "ÇS n", "AU n" / "AU n (Senaryo)", "Tanım n"; answer lines "Doğru/Yanlış", "Cevap: x", title "Model cevap".
-- **Write each question type in its own file** (`part_tf.py`, `part_mc.py`, `part_oe.py`, `part_def.py`) and run them from `build.py`. Large banks do not fit in one response; splitting keeps every file complete.
+- **Write each question type in its own file** (`part_tf.py`, `part_mc.py`, `part_oe.py`, `part_def.py`) each with its own `add(d)` (Section 8). Large banks do not fit in one response; splitting keeps every file complete.
 
 **Key Points Summary** — always the last section, `sec_hdr(no, title, bg=SUMMARY)`; title: *Key Exam Points* / *Sınav Kritik Noktaları Özeti*. One `hl_box` per point.
 
@@ -157,7 +157,7 @@ When the user is preparing for a specific quiz (for example a question a friend 
 
 ## 8. Build
 
-1. Find the builder that ships with this skill: `find / -path /proc -prune -o -name doc_builder.py -path "*lectoprint*" -print 2>/dev/null`. It sits in `scripts/` next to this SKILL.md. Create a working folder (e.g. `./lectoprint_<topic>/`) and copy it there **unchanged**; add new methods only if needed.
+1. Find the builder that ships with this skill: `find / -path /proc -prune -o -name doc_builder.py -path "*lectoprint*" -print 2>/dev/null`. It sits in `scripts/` next to this SKILL.md. Create a working folder (e.g. `./lectoprint_<topic>/`) and copy it there **unchanged**. If something is missing from the API table, write a small helper in the part file that needs it instead of editing the builder.
    If it is not found, the skill was installed without its `scripts/` folder, usually because SKILL.md was uploaded on its own or the zip was unpacked first. Do not rewrite the builder from memory, do not ask the user for a folder or file, and do not start the PDF. Send the installation message below in the user's language, then stop:
 
    > Lectoprint is installed incompletely: its PDF builder (`scripts/doc_builder.py`) is missing. This happens when only SKILL.md is uploaded instead of the zip. To fix it:
@@ -166,29 +166,51 @@ When the user is preparing for a specific quiz (for example a question a friend 
    > 3. Do **not** unzip it. Safari may unzip downloads automatically; if you see a `lectoprint` folder instead of a zip, download it again with another browser.
    > 4. Go to **Customize → Skills → + → Create skill → Upload a skill** and upload the zip as it is.
    > 5. Come back to this chat and say "continue"; your earlier choices will be kept.
-2. Write the content in `build.py` (and the `part_*.py` files) by calling `Doc` methods in order. Files are UTF-8.
-3. `python3 build.py`.
+2. **Do not open, read or print `doc_builder.py`.** It is about 8,000 tokens and the API table below covers every call a study PDF needs. Only if a call fails with an error the table does not explain, look at that one method: `grep -n "def <name>" doc_builder.py`, then print just those lines.
+3. **File layout.** `build.py` creates the `Doc`, writes the cover and contents, calls `add(d)` from each part file in order and builds. Every section goes in its own part file that defines `add(d)`: `part_s1.py`, `part_s2.py`, … for topic sections, `part_gloss.py`, `part_tf.py`, `part_mc.py`, `part_oe.py`, `part_def.py`, `part_sum.py`. Files are UTF-8.
+
+   ```python
+   import doc_builder as db
+   import part_s1, part_s2, part_gloss, part_tf, part_mc, part_oe, part_def, part_sum
+   d = db.Doc("out.pdf", "Topic · Full notes", "Topic", "Lectoprint", lang="en")
+   d.cover(["Topic"], "Full lecture notes", ["Mode: English"], "LECTOPRINT")
+   d.toc([("1", "First section"), ("2", "Second section")])
+   for part in (part_s1, part_s2, part_gloss, part_tf, part_mc, part_oe, part_def, part_sum):
+       part.add(d)
+   d.build()
+   ```
+4. **Long notes: outline first.** For full lecture notes, and for any source over about 20 pages, write the outline before any content: `build.py` with the final contents list, and every part file holding only its `sec_hdr` and `h2` headings. Run it once. Then fill one part file per response, in order, and run `build.py` after each. Never try to write a whole long document in one response; it gets cut off.
+5. `python3 build.py`.
+6. **Fixing errors and preview problems.** Change only the part file that holds the problem, with a targeted edit of the lines in question. Do not rewrite `build.py` or any part file from scratch, and do not reprint files that are fine. A traceback names the file and line; go there.
 
 ### Doc API
 
+Inside part files: `import doc_builder as db` for the constants below; `d` is the `Doc`. Text arguments accept ReportLab mini-HTML: `<b>`, `<i>`, `<sub>`, `<super>`, `<font color="#hex">`, `<br/>`. Escape a literal `&`, `<`, `>` as `&amp;`, `&lt;`, `&gt;`.
+
 | Method | Purpose |
 |---|---|
-| `Doc(path, footer_text, title, author, lang)` | The document. `lang`: `"en"` (default), `"hybrid"`, `"tr"`. `footer_text` is printed on every page. |
-| `cover(title_lines, sub, info_lines, bottom)` | Cover page. 1–3 title lines. |
-| `toc([(no, title), ...])` | Contents page. |
-| `sec_hdr(no, text, bg=DEEP)` | Section bar. `bg`: `DEEP` (topic sections), `PRIMARY` (glossary, exam practice, source questions), `PDARK` (original question), `SUMMARY` (key points). |
-| `h2`, `h3`, `body`, `bullets([..])`, `sp(h)` | Headings, paragraphs, lists. ReportLab mini-HTML works: `<b>`, `<i>`, `<sub>`, `<super>`, `<font color>`. |
-| `src_box(orig, tr=None, src)` | Source quote. `orig` is the original text, `tr` its Turkish translation; the builder shows what the mode requires. String or list. |
-| `q_box(label, lines)` | Question box. |
-| `info_box(title, text)`, `warn_box(text)`, `tip_box(text)`, `hl_box(text, title)` | Coloured boxes; `text` is a string or a list of paragraphs. |
-| `formula(lines)` | Monospace box for step-by-step calculations. |
-| `math(lines, fs=13)` | Display maths: each line is a LaTeX mathtext string (`r"\int_0^1 x^2\,dx = \frac{1}{3}"`). |
-| `def_tbl([(left, right), ...], w0)` | Two-column definition table. |
-| `grid(header, rows, widths, mono_cols, hl_rows, red_rows, green_rows, caption)` | General table. Row colours: hl yellow (attention), red (rejected/error), green (accepted/correct). |
-| `code_block_hl(code, lang, label)` | Dark+ highlighted code. `lang`: python, java, c, cpp, javascript, sql, bash, matlab, verilog, vhdl; anything else is uncoloured. Lines starting with `!!` are red. Long blocks split across pages. |
-| `diagram(w, h, states, edges, caption)` | State diagram / directed network (below). |
-| `image(path, width_frac, caption)` | Cropped figure or screenshot; `width_frac` of the text width (default 0.75), shrunk to fit the page height. |
-| `page_break()`, `build()` | Page break, write the PDF. |
+| `Doc(path, footer_text, title="Study Notes", author="", lang="en")` | The document. `lang`: `"en"`, `"hybrid"`, `"tr"`. `footer_text` is printed on every page. |
+| `cover(title_lines, sub, info_lines, bottom)` | Cover page. `title_lines`: list of 1–3 strings; `sub`: string; `info_lines`: list of strings; `bottom`: string. Adds its own page break. |
+| `toc([(no, title), ...])` | Contents page; `no` and `title` are strings. Adds its own page break. |
+| `sec_hdr(no, text, bg=db.DEEP)` | Section bar, kept with what follows. `bg`: `db.DEEP` (topic sections, default), `db.PRIMARY` (glossary, exam practice, source questions), `db.PDARK` (original question), `db.SUMMARY` (key points). |
+| `h2(text)`, `h3(text)` | Headings, kept with what follows. |
+| `body(text)` | Paragraph. |
+| `bullets([text, ...])` | Bulleted list. |
+| `sp(h=6)` | Vertical space in points. |
+| `src_box(orig, tr=None, src=None)` | Source quote. `orig`: original text, `tr`: Turkish translation, each a string or a list of paragraphs; `src`: label such as `"Week 4, slide 8"`. The mode decides what is shown. Never split across pages. |
+| `q_box(label, lines)` | Question box; `lines`: string or list (one item per line, e.g. MC options). |
+| `info_box(title, text)` | Blue box. `text`: string or list of paragraphs. |
+| `warn_box(text, title=None)`, `tip_box(text, title=None)` | Red / green box; the default title is the mode's WARNING / TIP label. |
+| `hl_box(text, title=None)` | Yellow box: answers, model answers, key points. |
+| `formula(lines)` | Monospace box for step-by-step plain-text calculations. `lines` **must be a list**. |
+| `math(lines, fs=13)` | Display maths; each line a LaTeX mathtext string (`r"\int_0^1 x^2\,dx = \frac{1}{3}"`). String or list. Never split across pages. |
+| `def_tbl([(left, right), ...], w0=0.27)` | Two-column definition table; `w0` is the left column's share of the width. |
+| `grid(header, rows, widths=None, mono_cols=None, hl_rows=(), red_rows=(), green_rows=(), caption=None)` | General table. `widths`: relative weights, e.g. `[1.6, 4.6, 0.6]`. `mono_cols`: indices of monospace columns; **the default `None` makes every column monospace**, so pass `[]` or a list for prose tables. Row indices count data rows from 0 (the header is not counted). Row colours: hl yellow (attention), red (rejected/error), green (accepted/correct). Kept on one page with its caption when it fits. |
+| `code_block_hl(code, lang="python", label=None)` | Dark+ highlighted code. `lang`: python, java, c, cpp, javascript, sql, bash, matlab, verilog, vhdl; anything else is uncoloured. Lines starting with `!!` are red. Long blocks split across pages. |
+| `diagram(w, h, states, edges, caption=None)` | State diagram / directed network in a `w`×`h` point box (below). The text width is `db.TW` (about 482 pt). |
+| `image(path, width_frac=0.75, caption=None)` | Cropped figure or screenshot; `width_frac` of the text width, shrunk to fit the page height. |
+| `add(flowable)` | Append a ReportLab flowable, e.g. `d.add(db.CondPageBreak(6 * db.cm))` to keep a question with its answer. |
+| `page_break()`, `build()` | Page break; write the PDF. |
 
 ### Diagrams
 
