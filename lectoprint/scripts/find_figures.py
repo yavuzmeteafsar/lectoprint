@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -21,6 +22,8 @@ MARGIN = 12.0
 LINE_MAX = 2.5
 FIGURE_GAP = 30.0
 ROW = 40.0
+BLANK_SCALE = 0.5
+BLANK_STD = 3.0
 
 
 def _area(b: Box) -> float:
@@ -64,6 +67,15 @@ def _running_text(runs: List[Box], box: Box) -> bool:
     return sum(1 for r in inside if r[2] - r[0] > 0.5 * width) >= 2
 
 
+def _blank(gray: Any, box: Box, h: float) -> bool:
+    from PIL import ImageStat
+
+    s = BLANK_SCALE
+    region = gray.crop((int(box[0] * s), int((h - box[3]) * s), max(int(box[0] * s) + 1, int(box[2] * s)),
+                        max(int((h - box[3]) * s) + 1, int((h - box[1]) * s))))
+    return ImageStat.Stat(region).stddev[0] < BLANK_STD
+
+
 def _page_pictures(page: Any, textpage: Any) -> List[Tuple[str, Box]]:
     import pypdfium2.raw as raw
 
@@ -90,6 +102,9 @@ def _page_pictures(page: Any, textpage: Any) -> List[Tuple[str, Box]]:
         if bw < 0.02 * w and bh < 0.02 * h and abs(bw - bh) < 1.0:
             continue
         paths.append(box)
+    if images:
+        gray = page.render(scale=BLANK_SCALE).to_pil().convert("L")
+        images = [b for b in images if not _blank(gray, b, h)]
     out: List[Tuple[str, Box]] = [("image", _union(g)) for g in _clusters(images, GAP)] if images else []
     runs = _text_runs(textpage) if paths else []
     for g in _clusters(paths, GAP):
@@ -157,11 +172,13 @@ def crop_box(boxes: List[Box], width: float, height: float, score: Optional[Any]
             min(height, box[3] + MARGIN))
 
 
-def figure_image(page: Any, box: Box, dest: Path, dpi: int = 200) -> None:
+def figure_image(page: Any, box: Box, dest: Path, dpi: int = 200) -> str:
     w, h = page.get_width(), page.get_height()
     bitmap = page.render(scale=dpi / 72.0, crop=(box[0], box[1], w - box[2], h - box[3]))
     dest.parent.mkdir(parents=True, exist_ok=True)
-    bitmap.to_pil().save(dest)
+    img = bitmap.to_pil()
+    img.save(dest)
+    return hashlib.sha1(img.tobytes() + repr(img.size).encode()).hexdigest()
 
 
 def parse_pages(spec: Optional[str]) -> Optional[List[int]]:
@@ -185,6 +202,7 @@ def find_figures(pdf: Path, out_dir: Path, dpi: int = 200, pages: Optional[List[
     out_dir.mkdir(parents=True, exist_ok=True)
     scale = dpi / 72.0
     figures: List[Dict[str, Any]] = []
+    seen: Dict[str, str] = {}
     doc = pdfium.PdfDocument(str(pdf))
     try:
         total = len(doc)
@@ -201,7 +219,8 @@ def find_figures(pdf: Path, out_dir: Path, dpi: int = 200, pages: Optional[List[
                     box = box or (0.0, 0.0, w, h)
                     kinds = sorted({k for k, b in items if b in group})
                     name = "p%03d_f%d.png" % (page_no, n)
-                    figure_image(page, box, out_dir / name, dpi)
+                    digest = figure_image(page, box, out_dir / name, dpi)
+                    duplicate_of = seen.setdefault(digest, name)
                     x, y = round(box[0] * scale), round((h - box[3]) * scale)
                     cw, ch = round((box[2] - box[0]) * scale), round((box[3] - box[1]) * scale)
                     figures.append({
@@ -212,6 +231,7 @@ def find_figures(pdf: Path, out_dir: Path, dpi: int = 200, pages: Optional[List[
                         "box_pt": [round(v, 1) for v in box],
                         "box_px": {"x": x, "y": y, "W": cw, "H": ch},
                         "file": name,
+                        "duplicate_of": duplicate_of if duplicate_of != name else None,
                         "pdftoppm": "pdftoppm -png -r %d -f %d -l %d -x %d -y %d -W %d -H %d SOURCE.pdf fig_p%d"
                                     % (dpi, page_no, page_no, x, y, cw, ch, page_no),
                     })
@@ -248,11 +268,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         print("Could not read %s: %s" % (args.pdf, exc), file=sys.stderr)
         return 1
     figs = summary["figures"]
-    print("%d figures on %d of %d pages -> %s" % (len(figs), len(summary["figure_pages"]), summary["pages"],
-                                                  args.out_dir / "figures.json"))
+    dups = sum(1 for f in figs if f["duplicate_of"])
+    print("%d figures (%d duplicates) on %d of %d pages -> %s" % (len(figs), dups, len(summary["figure_pages"]),
+                                                                 summary["pages"], args.out_dir / "figures.json"))
     for f in figs:
-        print("p%d f%d %s%s %dx%d %s" % (f["page"], f["index"], f["kind"], " full-page" if f["full_page"] else "",
-                                         f["box_px"]["W"], f["box_px"]["H"], f["file"]))
+        tail = "dup of %s" % f["duplicate_of"] if f["duplicate_of"] else "%dx%d" % (f["box_px"]["W"], f["box_px"]["H"])
+        print("p%d f%d %s%s %s %s" % (f["page"], f["index"], f["kind"], " full-page" if f["full_page"] else "",
+                                      f["file"], tail))
     return 0
 
 

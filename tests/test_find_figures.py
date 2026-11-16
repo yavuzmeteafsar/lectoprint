@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "lectoprint" / "scripts"))
 import find_figures
 
 W, H = 960, 540
-EXPECTED = {2: {"drawing"}, 5: {"image"}, 7: {"drawing", "image"}}
+EXPECTED = {2: {"drawing"}, 5: {"image"}, 7: {"drawing", "image"}, 8: {"image"}}
 
 
 def png(path, kind):
@@ -103,6 +103,14 @@ def build(pdf, tmp):
     circuit(c, 40, 140)
     c.drawImage(plot, 520, 120, 400, 260)
     c.showPage()
+    header(c, logo, "Charging curve again")
+    c.drawImage(plot, 230, 60, 500, 325)
+    c.showPage()
+    header(c, logo, "Next step (hidden until clicked)")
+    c.drawImage(plot, 230, 60, 500, 325)
+    c.setFillColorRGB(1, 1, 1)
+    c.rect(220, 50, 520, 345, stroke=0, fill=1)
+    c.showPage()
     c.save()
 
 
@@ -117,6 +125,8 @@ def main():
             got.setdefault(f["page"], set()).add(f["kind"])
             assert (out / f["file"]).is_file(), f["file"]
         assert json.loads((out / "figures.json").read_text())["figures"] == summary["figures"]
+        dups = {f["file"]: f["duplicate_of"] for f in summary["figures"] if f["duplicate_of"]}
+        assert dups == {"p008_f1.png": "p005_f1.png"}, dups
         for f in summary["figures"]:
             print("p%d f%d %s %s" % (f["page"], f["index"], f["kind"], f["box_px"]))
         if got != EXPECTED:
