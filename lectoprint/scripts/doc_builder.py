@@ -1,3 +1,4 @@
+import json
 import math
 import os
 import re
@@ -252,6 +253,15 @@ def _ell_pt(cx, cy, rx, ry, dx, dy):
     return cx + ux * t, cy + uy * t
 
 
+class _Mark(Flowable):
+    def __init__(self, pages):
+        super().__init__(); self.pages = pages
+    def wrap(self, aw, ah):
+        return 0, 0
+    def draw(self):
+        self.pages.add(self.canv.getPageNumber())
+
+
 class FA(Flowable):
     def __init__(self, w, h, states, edges, caption=None):
         super().__init__()
@@ -365,6 +375,7 @@ class Doc:
         assert lang in STR, "lang must be en, hybrid or tr"
         self.path = path; self.f = []; self.footer_text = footer_text; self.title = title; self.author = author
         self.lang = lang; self.S = STR[lang]
+        self.marks = {"image": set(), "diagram": set()}
     def add(self, x): self.f.append(x)
     def cover(self, title_lines, sub, info_lines, bottom):
         self.f.append(Cover(title_lines, sub, info_lines, bottom)); self.f.append(PageBreak())
@@ -472,7 +483,8 @@ class Doc:
     def code_block_hl(self, code, lang="python", label=None):
         self.f.append(Spacer(1, 3)); self.f.append(CodeBlock(code.strip("\n"), lang, label)); self.f.append(Spacer(1, 8))
     def diagram(self, w, h, states, edges, caption=None):
-        self.f.append(Spacer(1, 2)); self.f.append(FA(w, h, states, edges, caption)); self.f.append(Spacer(1, 8))
+        self.f.append(Spacer(1, 2)); self.f.append(KeepTogether([_Mark(self.marks["diagram"]), FA(w, h, states, edges, caption)]))
+        self.f.append(Spacer(1, 8))
     def image(self, path, width_frac=0.75, caption=None):
         iw, ih = ImageReader(path).getSize()
         w = TW * width_frac; h = w * ih / iw
@@ -481,7 +493,7 @@ class Doc:
             h = maxh; w = h * iw / ih
         img = Image(path, width=w, height=h)
         img.hAlign = "CENTER"
-        items = [img] + ([Spacer(1, 3), Paragraph(caption, ST["cap"])] if caption else [])
+        items = [_Mark(self.marks["image"]), img] + ([Spacer(1, 3), Paragraph(caption, ST["cap"])] if caption else [])
         self.f.append(Spacer(1, 4)); self.f.append(KeepTogether(items)); self.f.append(Spacer(1, 8))
     def build(self):
         d = BaseDocTemplate(self.path, pagesize=A4, leftMargin=LM, rightMargin=RM, topMargin=TM, bottomMargin=BM,
@@ -489,3 +501,6 @@ class Doc:
         fr = Frame(LM, BM, TW, PH - TM - BM, id="f", leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)
         d.addPageTemplates([PageTemplate(id="p", frames=[fr], onPage=footer_factory(self.footer_text, self.S["page"]))])
         d.build(self.f)
+        layout = {k: sorted(v) for k, v in self.marks.items()}
+        with open(os.path.splitext(self.path)[0] + ".layout.json", "w", encoding="utf-8") as fh:
+            json.dump(layout, fh)

@@ -6,7 +6,7 @@ dependencies: python>=3.8, reportlab>=4.0, matplotlib>=3.7, pypdfium2>=4.0
 
 # Lectoprint
 
-Lectoprint produces one kind of output: a printable study PDF built from the user's course material, with the reasoning flow **why → example → question**, not memorisation. Everything the skill needs is in this file plus the `scripts/` folder next to it: `doc_builder.py` (the PDF builder) and `find_figures.py` (finds and crops the figures in a source PDF).
+Lectoprint produces one kind of output: a printable study PDF built from the user's course material, with the reasoning flow **why → example → question**, not memorisation. Everything the skill needs is in this file plus the `scripts/` folder next to it: `doc_builder.py` (the PDF builder), `find_figures.py` (finds and crops the figures in a source PDF), `extract.py` (the source's text, and the pages to look at as images) and `check_pdf.py` (checks the finished PDF).
 
 The goal: nothing in the source is skipped, every claim is traceable to a slide or page, and the PDF works as the last thing a student reads before an exam.
 
@@ -58,6 +58,7 @@ Pass the mode to the builder: `Doc(..., lang="en" | "hybrid" | "tr")`. The build
 
 ## 3. Source discipline
 
+- **Reading a PDF source**: do not render or look at every page. Run `python3 <scripts>/find_figures.py source.pdf figs/` (Section 5), then `python3 <scripts>/extract.py source.pdf src/ --figures figs/figures.json`. Read `src/source.txt`, the text of every page under `=== Page N ===` markers. Look as images only at the pages it lists: *little text* pages (scans, handwriting, slides that are mostly a picture) as `src/look/pNNN.png`, *figure* pages through their crops in `figs/`. A page counts as little text below 200 characters when it also has a picture or drawing on it; change the limit with `--min-chars`. If the text of a page reads garbled or out of order, look at that page too.
 - Use only the methods shown in the source (slides, book, recitations). Do not switch to an outside method the instructor may not accept.
 - Quote definitions, theorems and question texts **verbatim** from the source and label them ("Week 4, slide 8", "Recitation 2 – Q1").
 - Label everything that is not in the source: your own questions are **Original question**, filled-in gaps are **Assumption**. If the source says a result is "not shown here", say so and mark the solution as yours.
@@ -222,8 +223,9 @@ Inside part files: `import doc_builder as db` for the constants below; `d` is th
 
 ## 9. Check and deliver
 
-1. Preview: `pdftoppm -png -r 60 out.pdf prev/pg`, combine pages into sheets of six with PIL and look at each. Look at diagram and table-heavy pages at `-r 110`. Check for overflowing text, broken tables, overlapping diagram labels, loop labels outside their box, empty pages. **Figure check**: take the figures in the source (`figures.json` plus any you cropped by hand) and confirm each one is in the PDF (drawn, screenshot, or "see source" line), and that crops are complete and legible.
-2. Language check: `pdffonts out.pdf` must list only embedded DejaVu fonts for text. In hybrid and tr modes `pdftotext out.pdf -` must not contain ASCII-flattened Turkish such as "Donusum", "Adim", "icin", "cunku". In tr mode there must be no untranslated English sentences outside acronyms and the parenthesised first definitions.
-3. Fix and rebuild if needed.
-4. Copy the PDF to the outputs folder with a meaningful name (e.g. `Automata_NFA_to_DFA_QuickReview.pdf`) and send it to the user.
-5. In the reply, state only the page count, the sections covered and any assumptions. Do not repeat the content.
+1. Run `python3 <scripts>/check_pdf.py out.pdf:<lang> --figures figs/figures.json --preview prev/` (`<lang>` is `en`, `hybrid` or `tr`; leave out `--figures` when the source had no figures). It checks that only embedded DejaVu fonts are used, that hybrid and tr text has no ASCII-flattened Turkish ("Donusum", "icin"), that tr text has no English outside parentheses, that no page is empty and that nothing runs past the margins. It writes `prev/pNNN.png` only for the pages to look at: pages with a diagram or figure, and pages with a problem.
+2. Look only at those previews. On diagram pages check for overlapping labels and loop labels outside their box; on figure pages that the crop is complete and legible. Do not render or look at the other pages.
+3. **Figure check**: the script lists the crops from `figures.json` that are not in the PDF. Confirm each one was dropped on purpose (a logo, a duplicate, a handwritten equation written out as text), redrawn with `diagram()`, or replaced by a "See source, p.N" line. Figures you cropped by hand are your own to check.
+4. On FAIL or a problem in a preview, fix it with a targeted edit in the part file (Section 8), rebuild and run the check again.
+5. Copy the PDF to the outputs folder with a meaningful name (e.g. `Automata_NFA_to_DFA_QuickReview.pdf`) and send it to the user.
+6. In the reply, state only the page count, the sections covered and any assumptions. Do not repeat the content.

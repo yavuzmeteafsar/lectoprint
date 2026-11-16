@@ -79,10 +79,11 @@ lectoprint/            the skill (this folder is what goes into the zip)
   SKILL.md             instructions Claude follows
   scripts/doc_builder.py   PDF builder (ReportLab)
   scripts/find_figures.py  finds and crops figures in source PDFs
+  scripts/extract.py       source text, and the pages to look at as images
+  scripts/check_pdf.py     font, language, empty-page, margin and figure checks
   THIRD_PARTY_NOTICES.md   licenses of adapted code
 examples/              sample PDFs and the scripts that build them
-tests/check_pdf.py     font and language checks run in CI
-tests/test_find_figures.py   figure detection test run in CI
+tests/                 tests of the scripts, run in CI
 tools/package.py       builds dist/lectoprint.zip
 ```
 
@@ -94,8 +95,10 @@ sudo apt-get install poppler-utils fonts-dejavu-core
 python3 examples/src/build_en_full.py
 python3 examples/src/build_hybrid_quick.py
 python3 examples/src/build_tr_questions.py
-python3 tests/check_pdf.py examples/Lectoprint_EN_Full_Notes.pdf:en examples/Lectoprint_Hybrid_Quick_Review.pdf:hybrid examples/Lectoprint_TR_Soru_Bankasi.pdf:tr
+python3 lectoprint/scripts/check_pdf.py examples/Lectoprint_EN_Full_Notes.pdf:en examples/Lectoprint_Hybrid_Quick_Review.pdf:hybrid examples/Lectoprint_TR_Soru_Bankasi.pdf:tr
 python3 tests/test_find_figures.py
+python3 tests/test_check_pdf.py
+python3 tests/test_extract.py
 ```
 
 ## Credits
@@ -181,10 +184,11 @@ lectoprint/            skill'in kendisi (zip'e giren klasör)
   SKILL.md             Claude'un uyduğu talimatlar
   scripts/doc_builder.py   PDF oluşturucu (ReportLab)
   scripts/find_figures.py  kaynak PDF'lerdeki şekilleri bulup kırpar
+  scripts/extract.py       kaynağın metni ve resim olarak bakılacak sayfalar
+  scripts/check_pdf.py     font, dil, boş sayfa, kenar ve şekil kontrolleri
   THIRD_PARTY_NOTICES.md   uyarlanan kodun lisansları
 examples/              örnek PDF'ler ve onları üreten script'ler
-tests/check_pdf.py     CI'da çalışan font ve dil kontrolleri
-tests/test_find_figures.py   CI'da çalışan şekil bulma testi
+tests/                 script testleri, CI'da çalışır
 tools/package.py       dist/lectoprint.zip dosyasını oluşturur
 ```
 
@@ -196,8 +200,10 @@ sudo apt-get install poppler-utils fonts-dejavu-core
 python3 examples/src/build_en_full.py
 python3 examples/src/build_hybrid_quick.py
 python3 examples/src/build_tr_questions.py
-python3 tests/check_pdf.py examples/Lectoprint_EN_Full_Notes.pdf:en examples/Lectoprint_Hybrid_Quick_Review.pdf:hybrid examples/Lectoprint_TR_Soru_Bankasi.pdf:tr
+python3 lectoprint/scripts/check_pdf.py examples/Lectoprint_EN_Full_Notes.pdf:en examples/Lectoprint_Hybrid_Quick_Review.pdf:hybrid examples/Lectoprint_TR_Soru_Bankasi.pdf:tr
 python3 tests/test_find_figures.py
+python3 tests/test_check_pdf.py
+python3 tests/test_extract.py
 ```
 
 ### Teşekkür
