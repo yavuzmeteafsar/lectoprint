@@ -20,6 +20,7 @@ GAP = 7.0
 MARGIN = 12.0
 LINE_MAX = 2.5
 FIGURE_GAP = 30.0
+ROW = 40.0
 
 
 def _area(b: Box) -> float:
@@ -193,7 +194,7 @@ def find_figures(pdf: Path, out_dir: Path, dpi: int = 200, pages: Optional[List[
             try:
                 w, h = page.get_width(), page.get_height()
                 groups = _clusters([b for _, b in items], FIGURE_GAP)
-                groups.sort(key=lambda g: (-round(_union(g)[3]), _union(g)[0]))
+                groups.sort(key=lambda g: (-round(_union(g)[3] / ROW), _union(g)[0]))
                 for n, group in enumerate(groups, 1):
                     box = crop_box(group, w, h)
                     full_page = box is None
