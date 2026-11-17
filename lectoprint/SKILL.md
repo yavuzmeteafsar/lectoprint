@@ -6,7 +6,7 @@ dependencies: python>=3.8, reportlab>=4.0, matplotlib>=3.7, pypdfium2>=4.0
 
 # Lectoprint
 
-Lectoprint produces one kind of output: a printable study PDF built from the user's course material, with the reasoning flow **why → example → question**, not memorisation. Everything the skill needs is in this file plus the `scripts/` folder next to it: `doc_builder.py` (the PDF builder), `find_figures.py` (finds and crops the figures in a source PDF), `extract.py` (the source's text, and the pages to look at as images) and `check_pdf.py` (checks the finished PDF).
+Lectoprint produces one kind of output: a printable study PDF built from the user's course material, with the reasoning flow **why → example → question**, not memorisation. Everything the skill needs is in this file plus the `scripts/` folder next to it: `doc_builder.py` (the PDF builder), `find_figures.py` (finds and crops the figures in a source PDF), `extract.py` (the source's text, and the pages to look at as images) and `check_pdf.py` (checks the finished PDF). In this file `<scripts>` stands for that folder; find it once with the command in Section 8, step 1, before running any script.
 
 The goal: nothing in the source is skipped, every claim is traceable to a slide or page, and the PDF works as the last thing a student reads before an exam.
 
@@ -53,16 +53,17 @@ Pass the mode to the builder: `Doc(..., lang="en" | "hybrid" | "tr")`. The build
 
 ### 2.3 All modes
 
-- No Unicode sub/superscript characters (₀₁²); use `<sub>` and `<super>`. Symbols like ε δ Σ ∅ → ∪ draw directly.
+- No Unicode sub/superscript characters (₀₁²); use `<sub>` and `<super>` in the fields that take mini-HTML (Doc API, Section 8). Section headers, the cover, diagrams and code labels draw plain text: word them without sub/superscripts ("Initial conditions and the exponential solution", not "… Ae<super>st</super> …"). Symbols like ε δ Σ ∅ → ∪ draw directly.
 - Display maths (integrals, sums, fractions, Greek-heavy formulas) go through `math()`, which renders LaTeX-style mathtext. `formula()` stays for step-by-step plain-text calculations and tables of values. It supports a LaTeX subset (matplotlib mathtext): no `\iff`, `\text{}` or matrices. Use `\Leftrightarrow`, `\mathrm{}`, and put matrices in a `grid()`. A parse error names the failing line.
 
 ## 3. Source discipline
 
-- **Reading a PDF source**: do not render or look at every page. Run `python3 <scripts>/find_figures.py source.pdf figs/` (Section 5), then `python3 <scripts>/extract.py source.pdf src/ --figures figs/figures.json`. Read `src/source.txt`, the text of every page under `=== Page N ===` markers. Look as images only at the pages it lists: *little text* pages (scans, handwriting, slides that are mostly a picture) as `src/look/pNNN.png`, *figure* pages through their crops in `figs/`. A page counts as little text below 200 characters when it also has a picture or drawing on it; change the limit with `--min-chars`. If the text of a page reads garbled or out of order, look at that page too.
+- **Reading a PDF source** (convert `.pptx` first with `soffice --headless --convert-to pdf`): do not render or look at every page. Run `python3 <scripts>/find_figures.py source.pdf figs/` (what it writes: Section 5), then `python3 <scripts>/extract.py source.pdf src/ --figures figs/figures.json`. If the user said no to figures, skip `find_figures.py` and leave out `--figures`. Read `src/source.txt`, the text of every page under `=== Page N ===` markers. Look as images only at the pages `extract.py` lists: *little text* pages (scans, handwriting, slides that are mostly a picture) as `src/look/pNNN.png`, *figure* pages through their crops in `figs/`. A page counts as little text below 200 characters when it also has a picture or drawing on it; change the limit with `--min-chars`. If the text of a page reads garbled or out of order, look at that page too.
+- **Small handwriting and symbols**: a whole-page image is scaled down before you see it, so signs, subscripts and exponents can disappear. Read them from the 200-dpi crops in `figs/` when the page has one; if a mark is still unclear, or the page has no crop, crop just that spot at 300 dpi (`pdftoppm -png -r 300 -f N -l N -x X -y Y -W W -H H source.pdf zoom`) and look again.
 - Use only the methods shown in the source (slides, book, recitations). Do not switch to an outside method the instructor may not accept.
 - Quote definitions, theorems and question texts **verbatim** from the source and label them ("Week 4, slide 8", "Recitation 2 – Q1").
 - Label everything that is not in the source: your own questions are **Original question**, filled-in gaps are **Assumption**. If the source says a result is "not shown here", say so and mark the solution as yours.
-- If the source has a typo (wrong state name, missing brace), write the correct version and flag it in a `warn_box`.
+- If the source has a typo (wrong state name, missing brace, wrong sign), write the correct version and flag it in a `warn_box`. Flag a typo only after a zoomed look shows it clearly; if the spot stays unreadable, follow the source's own later steps and mark your reading as an **Assumption**, not a typo. A typo that a clear look does show must be flagged even when the translation silently fixes it.
 
 ## 4. Content types
 
@@ -101,13 +102,13 @@ A short cover and contents page, then straight into Exam Practice with the quest
 
 ### 4.4 Glossary, Exam Practice and Summary
 
-**Glossary** — `sec_hdr(no, title, bg=PRIMARY)`; title: *Glossary* / *Tanım Sözlüğü*.
+**Glossary** — `sec_hdr(no, title, bg=db.PRIMARY)`; title: *Glossary* / *Tanım Sözlüğü*.
 - A short intro: definitions are verbatim from the source; bold words are the keywords an answer must contain.
 - `info_box` "How to study this section": (1) read the term and say the definition in your own words, (2) compare with the definition and find the bold word you missed, (3) ask why that word is there. Give a concrete example from the topic.
-- Every concept defined in the source, in source order, in one `grid`. Headers by mode — en: `["Term", "Definition", "Source"]`; hybrid: `["Term", "Definition (kaynaktaki İngilizce)", "Kaynak"]`; tr: `["Terim", "Tanım", "Kaynak"]`. Widths `[1.6, 4.6, 0.6]`, `mono_cols=[2]`. Distinguishing keywords in `<b>`. For concepts with drawing rules (e.g. UML relationships), include the rule.
+- Every concept defined in the source, in source order, in one `grid`. Headers by mode — en: `["Term", "Definition", "Source"]`; hybrid: `["Term", "Definition (kaynaktaki İngilizce)", "Kaynak"]`; tr: `["Terim", "Tanım", "Kaynak"]`. Widths `[1.6, 4.4, 0.8]` (a narrower source column breaks the header word), `mono_cols=[2]`. Distinguishing keywords in `<b>`. For concepts with drawing rules (e.g. UML relationships), include the rule.
 - Subsection **Commonly confused pairs** (*Karıştırılan tanım çiftleri*): `["Pair", "Distinguishing point"]` / `["Çift", "Ayırt edici nokta"]`, written as `<i>A</i> vs <i>B</i>` using the source's own words. Put `d.add(db.CondPageBreak(9 * db.cm))` before it.
 
-**Exam Practice** — `sec_hdr(no, title, bg=PRIMARY)`; title: *Exam Practice* / *Sınav Pratiği*. Fixed counts, regardless of how long the source is:
+**Exam Practice** — `sec_hdr(no, title, bg=db.PRIMARY)`; title: *Exam Practice* / *Sınav Pratiği*. Fixed counts, regardless of how long the source is:
 
 | Content type | True/False | Multiple choice | Open-ended (of which scenario) | Definition |
 |---|---|---|---|---|
@@ -125,7 +126,7 @@ A short cover and contents page, then straight into Exam Practice with the quest
 - In `tr` mode labels become "D/Y n", "ÇS n", "AU n" / "AU n (Senaryo)", "Tanım n"; answer lines "Doğru/Yanlış", "Cevap: x", title "Model cevap".
 - **Write each question type in its own file** (`part_tf.py`, `part_mc.py`, `part_oe.py`, `part_def.py`) each with its own `add(d)` (Section 8). Large banks do not fit in one response; splitting keeps every file complete.
 
-**Key Points Summary** — always the last section, `sec_hdr(no, title, bg=SUMMARY)`; title: *Key Exam Points* / *Sınav Kritik Noktaları Özeti*. One `hl_box` per point.
+**Key Points Summary** — always the last section, `sec_hdr(no, title, bg=db.SUMMARY)`; title: *Key Exam Points* / *Sınav Kritik Noktaları Özeti*. One `hl_box` per point.
 
 ## 5. Figures
 
@@ -133,7 +134,7 @@ Every figure in the source must appear in the PDF, unless the user said no to fi
 
 - **Redraw** with `diagram()` when it can be reproduced exactly (automata, state diagrams, directed networks, simple graphs). Node names, arrow directions, labels and known/unknown distinctions must match the source.
 - **Screenshot** everything else (circuits, function plots, curves, geometry, photos, complex illustrations, tables drawn as images) with `image()`. If unsure, screenshot; an approximate redraw is worse than a correct screenshot.
-- **Finding and cropping**: convert `.pptx` sources first with `soffice --headless --convert-to pdf`. Then run `python3 <scripts>/find_figures.py source.pdf figs/` (`<scripts>` is the folder that holds `doc_builder.py`, Section 8). It prints one line per figure and writes `figs/pNNN_fM.png` crops at 200 dpi plus `figs/figures.json` with each figure's page, kind (`image`, `drawing`, `mixed`), crop box, `duplicate_of` and a ready `pdftoppm` command. Images hidden under a white box (PowerPoint step-by-step reveals) are skipped; a crop identical to an earlier one is marked `dup of …` and needs no second look. If it reports that `pypdfium2` is missing, run `pip install pypdfium2` (add `--break-system-packages` if pip refuses) and run it again. `--pages 3-7,9` limits it to some pages.
+- **Finding and cropping**: `python3 <scripts>/find_figures.py source.pdf figs/`, run once while reading the source (Section 3). It prints one line per figure and writes `figs/pNNN_fM.png` crops at 200 dpi plus `figs/figures.json` with each figure's page, kind (`image`, `drawing`, `mixed`), crop box, `duplicate_of` and a ready `pdftoppm` command. Images hidden under a white box (PowerPoint step-by-step reveals) are skipped; a crop identical to an earlier one is marked `dup of …` and needs no second look. If it reports that `pypdfium2` is missing, run `pip install pypdfium2` (add `--break-system-packages` if pip refuses) and run it again. `--pages 3-7,9` limits it to some pages.
 - **Checking the crops**: combine the PNGs that are not duplicates into one sheet with PIL and look at it. Each crop must hold all labels, arrows and values and no extra text. Drop logos, QR codes, tables (rebuild those with `grid()`) and text frames that slipped through. A crop that cuts something off, or a `full_page` entry where only part of the page is the figure: take its `pdftoppm` command from `figures.json`, adjust `-x -y -W -H` (200-dpi pixels from the top-left corner) and crop by hand. A figure the script missed (one the source text refers to on a page with no entry, often a drawing whose wires are one large shape): crop it by hand the same way.
 - **Placement**: right after the `q_box`/`src_box` of the example it belongs to, before the solution steps. Repeat it if the solution needs it again.
 - **Caption**: source and page — "Source: Week 4 Workbook, p.4 (screenshot)" or "(redrawn)".
@@ -168,7 +169,7 @@ When the user is preparing for a specific quiz (for example a question a friend 
    > 4. Go to **Customize → Skills → + → Create skill → Upload a skill** and upload the zip as it is.
    > 5. Come back to this chat and say "continue"; your earlier choices will be kept.
 2. **Do not open, read or print `doc_builder.py`.** It is about 8,000 tokens and the API table below covers every call a study PDF needs. Only if a call fails with an error the table does not explain, look at that one method: `grep -n "def <name>" doc_builder.py`, then print just those lines.
-3. **File layout.** `build.py` creates the `Doc`, writes the cover and contents, calls `add(d)` from each part file in order and builds. Every section goes in its own part file that defines `add(d)`: `part_s1.py`, `part_s2.py`, … for topic sections, `part_gloss.py`, `part_tf.py`, `part_mc.py`, `part_oe.py`, `part_def.py`, `part_sum.py`. Files are UTF-8.
+3. **File layout.** `build.py` creates the `Doc`, writes the cover and contents, calls `add(d)` from each part file in order and builds. Every section goes in its own part file that defines `add(d)`: `part_s1.py`, `part_s2.py`, … for topic sections, `part_gloss.py`, `part_tf.py`, `part_mc.py`, `part_oe.py`, `part_def.py`, `part_sum.py`; leave out the parts the content type does not have. The Exam Practice `sec_hdr` and its "Note" `info_box` open `part_tf.py`; the "How to answer" `info_box` opens `part_def.py`. Files are UTF-8.
 
    ```python
    import doc_builder as db
@@ -186,14 +187,16 @@ When the user is preparing for a specific quiz (for example a question a friend 
 
 ### Doc API
 
-Inside part files: `import doc_builder as db` for the constants below; `d` is the `Doc`. Text arguments accept ReportLab mini-HTML: `<b>`, `<i>`, `<sub>`, `<super>`, `<font color="#hex">`, `<br/>`. Escape a literal `&`, `<`, `>` as `&amp;`, `&lt;`, `&gt;`.
+Inside part files: `import doc_builder as db` for the constants below; `d` is the `Doc`.
+
+**Mini-HTML** (`<b>`, `<i>`, `<sub>`, `<super>`, `<font color="#hex">`, `<br/>`; escape a literal `&`, `<`, `>` as `&amp;`, `&lt;`, `&gt;`) works only in: `toc` titles, `h2`, `h3`, `body`, `bullets`, every box (`info_box`, `warn_box`, `tip_box`, `hl_box`, `q_box`: title and text), `src_box` (text and `src`), `formula`, `def_tbl`, `grid` (header, cells, caption) and `image` captions. **Plain text only** (tags and escapes are printed as they are): `cover`, `sec_hdr`, `diagram` (names, labels, caption), the `code_block_hl` label and the `Doc` footer.
 
 | Method | Purpose |
 |---|---|
 | `Doc(path, footer_text, title="Study Notes", author="", lang="en")` | The document. `lang`: `"en"`, `"hybrid"`, `"tr"`. `footer_text` is printed on every page. |
 | `cover(title_lines, sub, info_lines, bottom)` | Cover page. `title_lines`: list of 1–3 strings; `sub`: string; `info_lines`: list of strings; `bottom`: string. Adds its own page break. |
 | `toc([(no, title), ...])` | Contents page; `no` and `title` are strings. Adds its own page break. |
-| `sec_hdr(no, text, bg=db.DEEP)` | Section bar, kept with what follows. `bg`: `db.DEEP` (topic sections, default), `db.PRIMARY` (glossary, exam practice, source questions), `db.PDARK` (original question), `db.SUMMARY` (key points). |
+| `sec_hdr(no, text, bg=db.DEEP)` | Section bar, kept with what follows. `text` is plain text on one line, at most about 50 characters; a longer one runs off the page. `bg`: `db.DEEP` (topic sections, default), `db.PRIMARY` (glossary, exam practice, source questions), `db.PDARK` (original question), `db.SUMMARY` (key points). |
 | `h2(text)`, `h3(text)` | Headings, kept with what follows. |
 | `body(text)` | Paragraph. |
 | `bullets([text, ...])` | Bulleted list. |
@@ -206,7 +209,7 @@ Inside part files: `import doc_builder as db` for the constants below; `d` is th
 | `formula(lines)` | Monospace box for step-by-step plain-text calculations. `lines` **must be a list**. |
 | `math(lines, fs=13)` | Display maths; each line a LaTeX mathtext string (`r"\int_0^1 x^2\,dx = \frac{1}{3}"`). String or list. Never split across pages. |
 | `def_tbl([(left, right), ...], w0=0.27)` | Two-column definition table; `w0` is the left column's share of the width. |
-| `grid(header, rows, widths=None, mono_cols=None, hl_rows=(), red_rows=(), green_rows=(), caption=None)` | General table. `widths`: relative weights, e.g. `[1.6, 4.6, 0.6]`. `mono_cols`: indices of monospace columns; **the default `None` makes every column monospace**, so pass `[]` or a list for prose tables. Row indices count data rows from 0 (the header is not counted). Row colours: hl yellow (attention), red (rejected/error), green (accepted/correct). Kept on one page with its caption when it fits. |
+| `grid(header, rows, widths=None, mono_cols=None, hl_rows=(), red_rows=(), green_rows=(), caption=None)` | General table. `widths`: relative weights, e.g. `[1.6, 4.4, 0.8]`; each cell loses 12 pt to padding. `mono_cols`: indices of monospace columns; **the default `None` makes every column monospace**, so pass `[]` or a list for prose tables. Row indices count data rows from 0 (the header is not counted). Row colours: hl yellow (attention), red (rejected/error), green (accepted/correct). Kept on one page with its caption when it fits. |
 | `code_block_hl(code, lang="python", label=None)` | Dark+ highlighted code. `lang`: python, java, c, cpp, javascript, sql, bash, matlab, verilog, vhdl; anything else is uncoloured. Lines starting with `!!` are red. Long blocks split across pages. |
 | `diagram(w, h, states, edges, caption=None)` | State diagram / directed network in a `w`×`h` point box (below). The text width is `db.TW` (about 482 pt). |
 | `image(path, width_frac=0.75, caption=None)` | Cropped figure or screenshot; `width_frac` of the text width, shrunk to fit the page height. |
@@ -223,8 +226,8 @@ Inside part files: `import doc_builder as db` for the constants below; `d` is th
 
 ## 9. Check and deliver
 
-1. Run `python3 <scripts>/check_pdf.py out.pdf:<lang> --figures figs/figures.json --preview prev/` (`<lang>` is `en`, `hybrid` or `tr`; leave out `--figures` when the source had no figures). It checks that only embedded DejaVu fonts are used, that hybrid and tr text has no ASCII-flattened Turkish ("Donusum", "icin"), that tr text has no English outside parentheses, that no page is empty and that nothing runs past the margins. It writes `prev/pNNN.png` only for the pages to look at: pages with a diagram or figure, and pages with a problem.
-2. Look only at those previews. On diagram pages check for overlapping labels and loop labels outside their box; on figure pages that the crop is complete and legible. Do not render or look at the other pages.
+1. Run `python3 <scripts>/check_pdf.py out.pdf:<lang> --figures figs/figures.json --preview prev/` (`<lang>` is `en`, `hybrid` or `tr`; leave out `--figures` when the source had no figures). It checks that only embedded DejaVu fonts are used, that hybrid and tr text has no ASCII-flattened Turkish ("Donusum", "icin"), that tr text has no English outside parentheses, that no page is empty and that nothing runs past the margins; these make it FAIL. Lines starting with `*` are notes to act on: markup printed as text (a tag in a plain-text field such as `sec_hdr`) and figure crops not used. It writes `prev/pNNN.png` only for the pages to look at: pages with a diagram or figure, pages with a table where a word does not fit its column, and pages with a problem.
+2. Look only at those previews. On diagram pages check for overlapping labels and loop labels outside their box; on figure pages that the crop is complete and legible; on table pages that no word is broken across lines (widen that column in `widths`). Do not render or look at the other pages.
 3. **Figure check**: the script lists the crops from `figures.json` that are not in the PDF. Confirm each one was dropped on purpose (a logo, a duplicate, a handwritten equation written out as text), redrawn with `diagram()`, or replaced by a "See source, p.N" line. Figures you cropped by hand are your own to check.
 4. On FAIL or a problem in a preview, fix it with a targeted edit in the part file (Section 8), rebuild and run the check again.
 5. Copy the PDF to the outputs folder with a meaningful name (e.g. `Automata_NFA_to_DFA_QuickReview.pdf`) and send it to the user.
