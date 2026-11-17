@@ -25,7 +25,11 @@ Versions: base = before A; A = find_figures; f1 = A + phase 1 rules; f2 = f1 + e
   read the find_figures output and view the non-duplicate crops on sheets of six (3 x 2 cells of 500 x 300 px).
 - Output preview (the repo's three example PDFs): base, A and f1 view all pages on sheets of six at 60 dpi and
   diagram pages again at 110 dpi; f2 views only the pages check_pdf flags, at 100 dpi.
-- One fix: base and A rewrite build.py (output tokens = its size); f1 and f2 make one targeted edit (~150)."""
+- One fix: base and A rewrite build.py (output tokens = its size); f1 and f2 make one targeted edit (~150).
+- Writing: with --output-pdf, the build files Claude writes are taken as 1.3 x the text of that finished PDF
+  (markup and calls around the text); the same in every version.
+Not counted: every tool call re-sends the whole conversation so far, so images and long reads early in a run are
+paid again on each later turn. This is why real usage falls less than these totals."""
 
 
 def tok_text(chars):
@@ -112,12 +116,17 @@ def main():
     ap.add_argument("pdfs", nargs="+", type=Path)
     ap.add_argument("--revs", default="01712ea,dbb3bdc,d9e3569,27e6167", help="base,A,f1,f2 commits")
     ap.add_argument("--json", type=Path)
+    ap.add_argument("--output-pdf", type=Path, help="a finished study PDF from this deck, to estimate the writing")
     args = ap.parse_args()
     revs = dict(zip(["base", "A", "f1", "f2"], args.revs.split(",")))
     skill = {k: tok_text(len(git_show(r, "lectoprint/SKILL.md"))) for k, r in revs.items()}
     builder = tok_text(len(git_show(revs["base"], "lectoprint/scripts/doc_builder.py")))
     rewrite = tok_text(len(git_show(revs["base"], "examples/src/build_en_full.py")))
     scripts = ROOT / "lectoprint" / "scripts"
+    write = 0
+    if args.output_pdf:
+        out_text = subprocess.run(["pdftotext", str(args.output_pdf), "-"], capture_output=True, text=True, check=True).stdout
+        write = tok_text(1.3 * len(out_text))
     with tempfile.TemporaryDirectory() as tmp:
         prev_base, prev_new = preview_costs(scripts, tmp)
         rows = {}
@@ -131,6 +140,7 @@ def main():
                 c["figures"] = s["fig_locate"] if v == "base" else s["fig_script"]
                 c["preview"] = prev_new if v == "f2" else prev_base
                 c["fix"] = rewrite if v in ("base", "A") else 150
+                c["write"] = write
                 c["total"] = sum(c.values())
                 r[v] = c
             r["info"] = s
@@ -140,7 +150,7 @@ def main():
         i = r["info"]
         print("\n%s: %d pages, %d figure crops (%d unique), %d little-text pages" % (name, i["pages"], i["n_crops"], i["n_uniq"], i["n_look"]))
         print("%-9s %8s %8s %8s %8s" % ("", "base", "A", "f1", "f2"))
-        for k in ("skill", "builder", "source", "figures", "preview", "fix", "total"):
+        for k in ("skill", "builder", "source", "figures", "preview", "fix", "write", "total"):
             print("%-9s %8d %8d %8d %8d" % (k, r["base"][k], r["A"][k], r["f1"][k], r["f2"][k]))
     if args.json:
         args.json.write_text(json.dumps(rows, indent=1))
