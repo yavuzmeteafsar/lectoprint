@@ -375,7 +375,7 @@ class Doc:
         assert lang in STR, "lang must be en, hybrid or tr"
         self.path = path; self.f = []; self.footer_text = footer_text; self.title = title; self.author = author
         self.lang = lang; self.S = STR[lang]
-        self.marks = {"image": set(), "diagram": set()}
+        self.marks = {"image": set(), "diagram": set(), "table": set()}
     def add(self, x): self.f.append(x)
     def cover(self, title_lines, sub, info_lines, bottom):
         self.f.append(Cover(title_lines, sub, info_lines, bottom)); self.f.append(PageBreak())
@@ -465,6 +465,10 @@ class Doc:
         sty += [("BACKGROUND", (1, i), (1, i), H("#F7F9FC")) for i in range(1, len(rows), 2)]
         tb.setStyle(TableStyle(sty))
         self.f.append(tb); self.f.append(Spacer(1, 8))
+    @staticmethod
+    def _fits(text, style, width):
+        plain = re.sub(r"&[a-z]+;|&#\d+;", "x", re.sub(r"<[^>]+>", "", str(text)))
+        return all(pdfmetrics.stringWidth(w, style.fontName, style.fontSize) <= width - 12 for w in plain.split())
     def grid(self, header, rows, widths=None, mono_cols=None, hl_rows=(), red_rows=(), green_rows=(), caption=None):
         mono_cols = list(range(len(header))) if mono_cols is None else mono_cols
         data = [[Paragraph(h, ST["cellhc"]) for h in header]]
@@ -478,7 +482,9 @@ class Doc:
         sty += [("BACKGROUND", (0, i + 1), (-1, i + 1), RLIGHT) for i in red_rows]
         sty += [("BACKGROUND", (0, i + 1), (-1, i + 1), GLIGHT) for i in green_rows]
         tb.setStyle(TableStyle(sty))
-        items = [tb] + ([Spacer(1, 2), Paragraph(caption, ST["cap"])] if caption else [])
+        tight = not all(self._fits(h, ST["cellhc"], widths[j]) for j, h in enumerate(header)) or not all(
+            self._fits(v, ST["cellmc"] if j in mono_cols else ST["cell"], widths[j]) for r in rows for j, v in enumerate(r))
+        items = ([_Mark(self.marks["table"])] if tight else []) + [tb] + ([Spacer(1, 2), Paragraph(caption, ST["cap"])] if caption else [])
         self.f.append(KeepTogether(items)); self.f.append(Spacer(1, 8))
     def code_block_hl(self, code, lang="python", label=None):
         self.f.append(Spacer(1, 3)); self.f.append(CodeBlock(code.strip("\n"), lang, label)); self.f.append(Spacer(1, 8))

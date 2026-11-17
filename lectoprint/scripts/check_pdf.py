@@ -12,6 +12,7 @@ LM = RM = 56.69
 TM = BM = 62.36
 EDGE_TOL = 3.0
 INK = 245
+RAW_MARKUP = re.compile(r"</?(?:b|i|u|sub|super|sup|font|br|para|strike)\b[^>]*>|&(?:amp|lt|gt|quot|nbsp|#\d+);")
 
 
 def run(*a):
@@ -60,6 +61,14 @@ def font_and_language(path, lang):
     return errors
 
 
+def raw_markup(path):
+    found = {}
+    for n, page in enumerate(run("pdftotext", path, "-").split("\f"), 1):
+        for m in RAW_MARKUP.findall(page):
+            found.setdefault(m, set()).add(n)
+    return found
+
+
 def layout(path, pages):
     from PIL import Image
 
@@ -105,6 +114,10 @@ def check(path, lang, figures_json=None):
     errors += ["empty page: %s" % ranges(blank)] if blank else []
     errors += ["content past the margins: page %s" % ranges(overflow)] if overflow else []
     notes = []
+    raw = raw_markup(path)
+    for tag, where in sorted(raw.items()):
+        notes.append("markup printed as text: %s on page %s. sec_hdr, cover, diagram and code labels take plain text; "
+                     "unless it is real content such as HTML code, rewrite that text without tags" % (tag, ranges(where)))
     marks = {}
     side = os.path.splitext(path)[0] + ".layout.json"
     if os.path.exists(side):
@@ -114,10 +127,14 @@ def check(path, lang, figures_json=None):
         look.setdefault(p, []).append("diagram")
     for p in marks.get("image", []):
         look.setdefault(p, []).append("figure")
+    for p in marks.get("table", []):
+        look.setdefault(p, []).append("table")
     for p in blank:
         look.setdefault(p, []).append("empty")
     for p in overflow:
         look.setdefault(p, []).append("overflow")
+    for p in sorted(set().union(*raw.values()) if raw else []):
+        look.setdefault(p, []).append("markup")
     if figures_json:
         found, missing = figures(path, figures_json)
         notes.append("figures: %d image() figures in the PDF; %d of %d crops from figures.json used"
