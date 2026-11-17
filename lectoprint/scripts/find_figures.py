@@ -143,6 +143,8 @@ def page_pictures(pdf: Path, pages: Optional[List[int]] = None) -> Dict[int, Lis
             if pages and i + 1 not in pages:
                 continue
             page = doc[i]
+            if page.get_rotation():
+                page.set_rotation(0)
             tp = page.get_textpage()
             try:
                 items = _page_pictures(page, tp)
@@ -172,13 +174,38 @@ def crop_box(boxes: List[Box], width: float, height: float, score: Optional[Any]
             min(height, box[3] + MARGIN))
 
 
-def figure_image(page: Any, box: Box, dest: Path, dpi: int = 200) -> str:
+def figure_image(page: Any, box: Box, dest: Path, dpi: int = 200, rotation: int = 0) -> str:
     w, h = page.get_width(), page.get_height()
     bitmap = page.render(scale=dpi / 72.0, crop=(box[0], box[1], w - box[2], h - box[3]))
     dest.parent.mkdir(parents=True, exist_ok=True)
     img = bitmap.to_pil()
+    if rotation:
+        img = img.rotate(-rotation, expand=True)
     img.save(dest)
     return hashlib.sha1(img.tobytes() + repr(img.size).encode()).hexdigest()
+
+
+def _display_box(box: Box, w: float, h: float, rotation: int) -> Box:
+    l, b, r, t = box
+    if rotation == 90:
+        return (b, l, t, r)
+    if rotation == 180:
+        return (w - r, b, w - l, t)
+    if rotation == 270:
+        return (h - t, w - r, h - b, w - l)
+    return (l, h - t, r, h - b)
+
+
+def _reading_order(groups: List[List[Box]], w: float, h: float, rotation: int) -> List[List[Box]]:
+    tops = sorted(groups, key=lambda g: _display_box(_union(g), w, h, rotation)[1])
+    rows: List[List[List[Box]]] = []
+    for g in tops:
+        y = _display_box(_union(g), w, h, rotation)[1]
+        if rows and y - _display_box(_union(rows[-1][0]), w, h, rotation)[1] <= ROW:
+            rows[-1].append(g)
+        else:
+            rows.append([g])
+    return [g for row in rows for g in sorted(row, key=lambda g: _display_box(_union(g), w, h, rotation)[0])]
 
 
 def parse_pages(spec: Optional[str]) -> Optional[List[int]]:
@@ -210,19 +237,22 @@ def find_figures(pdf: Path, out_dir: Path, dpi: int = 200, pages: Optional[List[
             items = found[page_no]
             page = doc[page_no - 1]
             try:
+                rotation = page.get_rotation()
+                if rotation:
+                    page.set_rotation(0)
                 w, h = page.get_width(), page.get_height()
-                groups = _clusters([b for _, b in items], FIGURE_GAP)
-                groups.sort(key=lambda g: (-round(_union(g)[3] / ROW), _union(g)[0]))
+                groups = _reading_order(_clusters([b for _, b in items], FIGURE_GAP), w, h, rotation)
                 for n, group in enumerate(groups, 1):
                     box = crop_box(group, w, h)
                     full_page = box is None
                     box = box or (0.0, 0.0, w, h)
                     kinds = sorted({k for k, b in items if b in group})
                     name = "p%03d_f%d.png" % (page_no, n)
-                    digest = figure_image(page, box, out_dir / name, dpi)
+                    digest = figure_image(page, box, out_dir / name, dpi, rotation)
                     duplicate_of = seen.setdefault(digest, name)
-                    x, y = round(box[0] * scale), round((h - box[3]) * scale)
-                    cw, ch = round((box[2] - box[0]) * scale), round((box[3] - box[1]) * scale)
+                    dl, dt, dr, db = _display_box(box, w, h, rotation)
+                    x, y = round(dl * scale), round(dt * scale)
+                    cw, ch = round((dr - dl) * scale), round((db - dt) * scale)
                     figures.append({
                         "page": page_no,
                         "index": n,

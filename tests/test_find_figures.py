@@ -114,6 +114,34 @@ def build(pdf, tmp):
     c.save()
 
 
+def rotation_check(pdf, tmp, base):
+    import subprocess
+    from PIL import Image, ImageChops
+    for rot in (90, 180, 270):
+        rpdf = os.path.join(tmp, "rot%d.pdf" % rot)
+        import pypdfium2 as pdfium
+        doc = pdfium.PdfDocument(pdf)
+        for i in range(len(doc)):
+            doc[i].set_rotation(rot)
+        doc.save(rpdf)
+        doc.close()
+        out = Path(tmp) / ("rot%d" % rot)
+        s = find_figures.find_figures(Path(rpdf), out)
+        key = lambda fs: sorted((f["page"], f["kind"], tuple(f["box_pt"])) for f in fs)
+        assert key(s["figures"]) == key(base["figures"]), rot
+        p7 = [f["kind"] for f in s["figures"] if f["page"] == 7]
+        assert p7 == (["drawing", "image"] if rot == 90 else ["image", "drawing"]), (rot, p7)
+        for f in s["figures"]:
+            cmd = f["pdftoppm"].replace("SOURCE.pdf", rpdf).replace("fig_p%d" % f["page"], str(out / "ref")).split()
+            subprocess.run(cmd[:1] + ["-singlefile"] + cmd[1:], check=True)
+            a = Image.open(out / "ref.png").convert("L")
+            b = Image.open(out / f["file"]).convert("L")
+            assert abs(a.width - b.width) <= 2 and abs(a.height - b.height) <= 2, (rot, f["file"], a.size, b.size)
+            diff = ImageChops.difference(a, b.resize(a.size)).point(lambda v: 255 if v > 80 else 0)
+            assert diff.histogram()[255] < 0.05 * a.width * a.height, (rot, f["file"])
+    print("rotated pages: OK")
+
+
 def main():
     with tempfile.TemporaryDirectory() as tmp:
         pdf = os.path.join(tmp, "deck.pdf")
@@ -132,6 +160,7 @@ def main():
         if got != EXPECTED:
             print("expected %s, got %s" % (EXPECTED, got))
             return 1
+        rotation_check(pdf, tmp, summary)
         print("find_figures: OK")
         return 0
 

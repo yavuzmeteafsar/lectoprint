@@ -59,7 +59,10 @@ def visual_pages(pdf, min_share=0.025, min_paths=8):
             paths = 0
             for o in page.get_objects(max_depth=4):
                 if o.type == raw.FPDF_PAGEOBJ_IMAGE:
-                    l, b, r, t = o.get_bounds()
+                    try:
+                        l, b, r, t = o.get_bounds()
+                    except Exception:
+                        continue
                     if (r - l) * (t - b) >= min_share * size:
                         out.add(i + 1)
                         break

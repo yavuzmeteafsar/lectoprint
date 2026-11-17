@@ -8,8 +8,10 @@ author's permission ([IEUStudia issue #5](https://github.com/mirzaisi/IEUStudia/
 
 Changes from the original: the figure-finding part only (no Markdown/HTML helpers); no cache, lock or
 application imports; a command-line interface that writes one PNG per figure and a JSON summary; figures
-far apart on a page are cropped separately; a path counts as a line when it is under 2.5 pt thick instead
-of 1.5 pt, because pdfium rounds object bounds outward to whole points.
+far apart on a page are cropped separately and numbered in reading order; a path counts as a line when it
+is under 2.5 pt thick instead of 1.5 pt, because pdfium rounds object bounds outward to whole points;
+images that render as a single colour (covered by a white box) are skipped; identical crops are marked as
+duplicates; rotated pages are cropped in the orientation they are displayed in.
 
 ```
 MIT License
