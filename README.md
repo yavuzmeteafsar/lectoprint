@@ -99,6 +99,7 @@ python3 lectoprint/scripts/check_pdf.py examples/Lectoprint_EN_Full_Notes.pdf:en
 python3 tests/test_find_figures.py
 python3 tests/test_check_pdf.py
 python3 tests/test_extract.py
+python3 tests/test_layout_rules.py
 ```
 
 ## Credits
@@ -204,6 +205,7 @@ python3 lectoprint/scripts/check_pdf.py examples/Lectoprint_EN_Full_Notes.pdf:en
 python3 tests/test_find_figures.py
 python3 tests/test_check_pdf.py
 python3 tests/test_extract.py
+python3 tests/test_layout_rules.py
 ```
 
 ### Teşekkür
