@@ -37,6 +37,7 @@ def main():
         d.page_break()
         d.page_break()
         d.body("After an empty page.")
+        d.h2("Complex roots (α < ω_n)")
         d.add(Table([["x" * 40, "y" * 40, "z" * 40]], colWidths=[260, 260, 260]))
         d.grid(["Term", "Definition", "Kaynak"], [["Time constant", "tau = RC", "s12"]], widths=[1.6, 4.6, 0.6], mono_cols=[2])
         d.diagram(300, 120, [("q0", 60, 60, ("start",)), ("q1", 220, 60, ("acc",))], [dict(s="q0", d="q1", l="a")])
@@ -52,11 +53,16 @@ def main():
                 widths=[1.6, 4.4, 0.8], mono_cols=[2])
         d2.build()
         assert json.load(open(os.path.join(tmp, "ok.layout.json")))["table"] == [], "glossary widths flagged"
-        assert "1 of 2 crops from figures.json used" in notes[2], notes
-        assert notes[3].endswith("p007_f1.png"), notes
-        assert notes[0].startswith("markup printed as text: </super> on page 2"), notes
-        assert notes[1].startswith("markup printed as text: <super> on page 2"), notes
-        assert "markup" in look.get(2, []), look
+        def note(prefix):
+            hits = [n for n in notes if n.startswith(prefix)]
+            assert len(hits) == 1, (prefix, notes)
+            return hits[0]
+        assert "1 of 2 crops from figures.json used" in note("figures:"), notes
+        assert note("crops not in the PDF").endswith("p007_f1.png"), notes
+        assert note("markup printed as text: </super>").startswith("markup printed as text: </super> on page 2"), notes
+        assert note("markup printed as text: <super>").startswith("markup printed as text: <super> on page 2"), notes
+        assert note("ASCII sub/superscript written out: ω_n on page 4"), notes
+        assert "markup" in look.get(2, []) and "ascii-math" in look.get(4, []), look
         prev = check_pdf.preview(out, look, os.path.join(tmp, "prev"), 60)
         assert len(prev) == len(look) and all(os.path.exists(p) for p in prev)
         print("check_pdf: OK")

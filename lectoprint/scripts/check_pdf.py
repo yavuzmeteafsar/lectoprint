@@ -12,6 +12,7 @@ LM = RM = 56.69
 TM = BM = 62.36
 EDGE_TOL = 3.0
 INK = 245
+ASCII_MATH = re.compile(r"[\u03b1-\u03c9\u0391-\u03a9]_[A-Za-z0-9]|[A-Za-z0-9)\]]\^[\w(\-\u2212]")
 RAW_MARKUP = re.compile(r"</?(?:b|i|u|sub|super|sup|font|br|para|strike)\b[^>]*>|&(?:amp|lt|gt|quot|nbsp|#\d+);")
 
 
@@ -61,10 +62,10 @@ def font_and_language(path, lang):
     return errors
 
 
-def raw_markup(path):
+def raw_markup(path, pattern=RAW_MARKUP):
     found = {}
     for n, page in enumerate(run("pdftotext", path, "-").split("\f"), 1):
-        for m in RAW_MARKUP.findall(page):
+        for m in pattern.findall(page):
             found.setdefault(m, set()).add(n)
     return found
 
@@ -118,6 +119,12 @@ def check(path, lang, figures_json=None):
     for tag, where in sorted(raw.items()):
         notes.append("markup printed as text: %s on page %s. sec_hdr, cover, diagram and code labels take plain text; "
                      "unless it is real content such as HTML code, rewrite that text without tags" % (tag, ranges(where)))
+    stand_ins = raw_markup(path, ASCII_MATH)
+    if stand_ins:
+        pages_ = sorted(set().union(*stand_ins.values()))
+        notes.append("ASCII sub/superscript written out: %s on page %s. Outside sec_hdr, cover and diagrams use "
+                     "<sub>/<super> (e.g. \u03c9<sub>n</sub>, e<super>st</super>); in sec_hdr word it without them; "
+                     "ignore if it is real code (MATLAB x^2)" % (", ".join(sorted(stand_ins)), ranges(pages_)))
     marks = {}
     side = os.path.splitext(path)[0] + ".layout.json"
     if os.path.exists(side):
@@ -135,6 +142,8 @@ def check(path, lang, figures_json=None):
         look.setdefault(p, []).append("overflow")
     for p in sorted(set().union(*raw.values()) if raw else []):
         look.setdefault(p, []).append("markup")
+    for p in sorted(set().union(*stand_ins.values()) if stand_ins else []):
+        look.setdefault(p, []).append("ascii-math")
     if figures_json:
         found, missing = figures(path, figures_json)
         notes.append("figures: %d image() figures in the PDF; %d of %d crops from figures.json used"
